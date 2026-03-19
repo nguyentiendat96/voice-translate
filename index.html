@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#0f0f1e" />
+  <meta name="description" content="Real-time Vietnamese ↔ English voice translation" />
+  <title>VoiceTranslate</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css?v=4" />
+</head>
+<body>
+  <!-- Settings Overlay -->
+  <div id="settingsOverlay" class="settings-overlay">
+    <div class="settings-panel">
+      <div class="settings-header">
+        <h2>Cài đặt</h2>
+        <button id="closeSettings" class="icon-btn" aria-label="Đóng">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <div class="settings-body">
+        <div class="settings-section">
+          <div class="section-title">API Keys</div>
+
+          <div class="setting-group">
+            <label for="sonioxKey">Soniox API Key</label>
+            <input type="password" id="sonioxKey" placeholder="Nhập key..." autocomplete="off" />
+          </div>
+
+          <div class="setting-group">
+            <label for="elevenKey">ElevenLabs API Key</label>
+            <input type="password" id="elevenKey" placeholder="Nhập key..." autocomplete="off" />
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="section-title">Giọng nói & Dịch</div>
+
+          <div class="setting-group">
+            <label for="voiceGender">Giọng đọc bản dịch</label>
+            <select id="voiceGender">
+              <option value="female">Nữ</option>
+              <option value="male">Nam</option>
+            </select>
+          </div>
+
+          <div class="setting-row">
+            <label for="autoSpeak">Tự động đọc bản dịch</label>
+            <div class="toggle-wrapper">
+              <input type="checkbox" id="autoSpeak" checked />
+              <label for="autoSpeak" class="toggle-label"></label>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <label for="pushToTalk">Nhấn giữ để nói (Push to Talk)</label>
+            <div class="toggle-wrapper">
+              <input type="checkbox" id="pushToTalk" />
+              <label for="pushToTalk" class="toggle-label"></label>
+            </div>
+          </div>
+          <p class="setting-hint" style="margin-top: -10px; margin-bottom: 16px;">Giữ nút mic để nói, thả ra để dịch</p>
+
+          <div class="setting-group">
+            <label for="mergeSpeed">Tốc độ gộp câu</label>
+            <div class="speed-control">
+              <input type="range" id="mergeSpeed" min="1" max="8" step="1" value="4" />
+              <div class="speed-labels">
+                <span>Nhanh</span>
+                <span id="mergeSpeedValue">4s</span>
+                <span>Chậm</span>
+              </div>
+            </div>
+            <p class="setting-hint">Thời gian chờ trước khi tách thành câu mới</p>
+          </div>
+        </div>
+
+        <button id="saveSettings" class="btn-save">Lưu cài đặt</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main App -->
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="app-logo">
+          <div class="logo-glow"></div>
+          <svg class="logo-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="url(#grad)" stroke-width="1.8">
+            <defs><linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#a78bfa"/><stop offset="100%" style="stop-color:#6366f1"/></linearGradient></defs>
+            <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+          </svg>
+          <h1>VoiceTranslate</h1>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="lang-pill">
+          <span class="lang-flag">🇻🇳</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          <span class="lang-flag">🇬🇧</span>
+        </div>
+        <button id="openSettings" class="icon-btn settings-btn" aria-label="Cài đặt">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Status Bar -->
+    <div id="statusBar" class="status-bar">
+      <div class="status-dot"></div>
+      <span id="statusText">Nhấn nút để bắt đầu</span>
+    </div>
+
+    <!-- Transcript Area -->
+    <main class="transcript-area" id="transcriptArea">
+      <div class="empty-state" id="emptyState">
+        <div class="empty-visual">
+          <div class="pulse-ring"></div>
+          <div class="pulse-ring delay-1"></div>
+          <div class="pulse-ring delay-2"></div>
+          <div class="empty-mic">🎙️</div>
+        </div>
+        <p class="empty-title">Sẵn sàng dịch</p>
+        <p class="empty-hint">Nhấn nút bên dưới, nói tiếng Việt hoặc tiếng Anh</p>
+      </div>
+    </main>
+
+    <!-- Bottom Controls -->
+    <footer class="controls-bar">
+      <button id="clearBtn" class="control-btn" aria-label="Xóa" disabled>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      </button>
+
+      <button id="recordBtn" class="record-btn" aria-label="Bắt đầu ghi âm">
+        <div class="record-ring"></div>
+        <div class="record-btn-inner">
+          <svg class="mic-icon" width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15a.998.998 0 0 0-.98-.85c-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08a6.993 6.993 0 0 0 5.91-5.78c.1-.6-.39-1.14-1-1.14z"/></svg>
+          <svg class="stop-icon hidden" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+        </div>
+      </button>
+
+      <button id="speakBtn" class="control-btn" aria-label="Đọc lại" disabled>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+      </button>
+    </footer>
+  </div>
+
+  <script src="app.js?v=15"></script>
+</body>
+</html>
