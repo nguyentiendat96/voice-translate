@@ -22,7 +22,7 @@ const state = {
   sonioxKey: '',
   elevenKey: '',
   voiceGender: 'female',
-  autoSpeak: true,
+  autoSpeak: false,
   pushToTalk: false,
   mergeSpeed: 4,
   ws: null,
@@ -65,7 +65,7 @@ function loadSettings() {
   state.sonioxKey = localStorage.getItem('vt_soniox_key') || '0e3690d5c1e0e2df877d3f31d9b306503ecd5df90f86613d967121414ab04d9a';
   state.elevenKey = localStorage.getItem('vt_eleven_key') || 'sk_a2c351511388d19b182e482ec391e4b9a41f588bc0d9e20c';
   state.voiceGender = localStorage.getItem('vt_voice_gender') || 'female';
-  state.autoSpeak = localStorage.getItem('vt_auto_speak') !== 'false';
+  state.autoSpeak = localStorage.getItem('vt_auto_speak') === 'true';
   state.mergeSpeed = parseInt(localStorage.getItem('vt_merge_speed') || '4');
   state.pushToTalk = localStorage.getItem('vt_push_to_talk') === 'true';
 
