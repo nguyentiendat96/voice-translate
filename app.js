@@ -1,18 +1,26 @@
 /**
- * VoiceTranslate — Real-time Vietnamese ↔ English Translation
+ * VoiceTranslate — Real-time Vietnamese ↔ English/French Translation
  * Uses Soniox WebSocket for STT + Translation
  * Uses ElevenLabs for TTS
  */
+
+// ===== Language Config =====
+const LANG_CONFIG = {
+  'vi-en': { a: 'vi', b: 'en', flagA: '🇻🇳', flagB: '🇬🇧', nameA: 'Tiếng Việt', nameB: 'English' },
+  'vi-fr': { a: 'vi', b: 'fr', flagA: '🇻🇳', flagB: '🇫🇷', nameA: 'Tiếng Việt', nameB: 'Français' },
+};
 
 // ===== ElevenLabs Voice IDs =====
 const VOICES = {
   female: {
     vi: 'jBpfAIEEVEdMwaNBLmUR',  // Vietnamese female (Gigi)
     en: 'EXAVITQu4vr4xnSDxMaL',  // English female (Sarah)
+    fr: 'XB0fDUnXU5powFXDhCwa',  // French female (Charlotte)
   },
   male: {
     vi: 'onwK4e9ZLuTAKqWW03F9',  // Vietnamese male (Daniel)
     en: 'pNInz6obpgDQGcFmaJgB',  // English male (Adam)
+    fr: 'IKne3meq5aSn9XLyUdCD',  // French male (Charlie)
   },
 };
 
@@ -24,6 +32,7 @@ const state = {
   voiceGender: 'female',
   autoSpeak: false,
   pushToTalk: false,
+  langPair: 'vi-en',
   mergeSpeed: 4,
   ws: null,
   audioContext: null,
@@ -32,6 +41,7 @@ const state = {
   currentInterim: null,
   ttsQueue: [],
   isSpeaking: false,
+  isTTSPlaying: false,
   lastFinalText: '',
   pttActive: false,
   micReady: false,
@@ -49,6 +59,7 @@ const dom = {
   voiceGender: $('#voiceGender'),
   autoSpeak: $('#autoSpeak'),
   pushToTalk: $('#pushToTalk'),
+  langPair: $('#langPair'),
   mergeSpeed: $('#mergeSpeed'),
   mergeSpeedValue: $('#mergeSpeedValue'),
   statusBar: $('#statusBar'),
@@ -58,6 +69,8 @@ const dom = {
   recordBtn: $('#recordBtn'),
   clearBtn: $('#clearBtn'),
   speakBtn: $('#speakBtn'),
+  langFlagA: $('#langFlagA'),
+  langFlagB: $('#langFlagB'),
 };
 
 // ===== Settings =====
@@ -66,6 +79,7 @@ function loadSettings() {
   state.elevenKey = localStorage.getItem('vt_eleven_key') || 'sk_a2c351511388d19b182e482ec391e4b9a41f588bc0d9e20c';
   state.voiceGender = localStorage.getItem('vt_voice_gender') || 'female';
   state.autoSpeak = localStorage.getItem('vt_auto_speak') === 'true';
+  state.langPair = localStorage.getItem('vt_lang_pair') || 'vi-en';
   state.mergeSpeed = parseInt(localStorage.getItem('vt_merge_speed') || '4');
   state.pushToTalk = localStorage.getItem('vt_push_to_talk') === 'true';
 
@@ -73,11 +87,13 @@ function loadSettings() {
   dom.elevenKey.value = state.elevenKey;
   dom.voiceGender.value = state.voiceGender;
   dom.autoSpeak.checked = state.autoSpeak;
+  if (dom.langPair) dom.langPair.value = state.langPair;
   if (dom.pushToTalk) dom.pushToTalk.checked = state.pushToTalk;
   if (dom.mergeSpeed) {
     dom.mergeSpeed.value = state.mergeSpeed;
     dom.mergeSpeedValue.textContent = state.mergeSpeed + 's';
   }
+  updateLangFlags();
 }
 
 function saveSettings() {
@@ -85,6 +101,7 @@ function saveSettings() {
   state.elevenKey = dom.elevenKey.value.trim();
   state.voiceGender = dom.voiceGender.value;
   state.autoSpeak = dom.autoSpeak.checked;
+  state.langPair = dom.langPair ? dom.langPair.value : 'vi-en';
   state.mergeSpeed = dom.mergeSpeed ? parseInt(dom.mergeSpeed.value) : 4;
   state.pushToTalk = dom.pushToTalk ? dom.pushToTalk.checked : false;
 
@@ -92,14 +109,22 @@ function saveSettings() {
   localStorage.setItem('vt_eleven_key', state.elevenKey);
   localStorage.setItem('vt_voice_gender', state.voiceGender);
   localStorage.setItem('vt_auto_speak', state.autoSpeak);
+  localStorage.setItem('vt_lang_pair', state.langPair);
   localStorage.setItem('vt_merge_speed', state.mergeSpeed);
   localStorage.setItem('vt_push_to_talk', state.pushToTalk);
 
   // Re-setup button listeners for new mode
   setupRecordButton();
+  updateLangFlags();
 
   closeSettings();
   showToast('Đã lưu cài đặt', 'success');
+}
+
+function updateLangFlags() {
+  const cfg = LANG_CONFIG[state.langPair] || LANG_CONFIG['vi-en'];
+  if (dom.langFlagA) dom.langFlagA.textContent = cfg.flagA;
+  if (dom.langFlagB) dom.langFlagB.textContent = cfg.flagB;
 }
 
 function openSettings() {
@@ -290,6 +315,7 @@ async function startAudioCapture() {
       state.workletNode = new AudioWorkletNode(state.audioContext, 'audio-capture-processor');
 
       state.workletNode.port.onmessage = (event) => {
+        if (state.isTTSPlaying) return; // Mute mic during TTS playback
         if (state.ws && state.ws.readyState === WebSocket.OPEN) {
           state.ws.send(event.data);
         }
@@ -304,6 +330,7 @@ async function startAudioCapture() {
       const processor = state.audioContext.createScriptProcessor(4096, 1, 1);
 
       processor.onaudioprocess = (e) => {
+        if (state.isTTSPlaying) return; // Mute mic during TTS playback
         const float32 = e.inputBuffer.getChannelData(0);
         const int16 = new Int16Array(float32.length);
         for (let i = 0; i < float32.length; i++) {
@@ -356,19 +383,20 @@ function connectSoniox(sampleRate) {
 
     ws.onopen = () => {
       // Send configuration with actual microphone sample rate
+      const langCfg = LANG_CONFIG[state.langPair] || LANG_CONFIG['vi-en'];
       const config = {
         api_key: state.sonioxKey,
         model: 'stt-rt-preview',
         audio_format: 'pcm_s16le',
         sample_rate: sampleRate,
         num_channels: 1,
-        language_hints: ['vi', 'en'],
+        language_hints: [langCfg.a, langCfg.b],
         enable_speaker_diarization: true,
         enable_language_identification: true,
         translation: {
           type: 'two_way',
-          language_a: 'vi',
-          language_b: 'en',
+          language_a: langCfg.a,
+          language_b: langCfg.b,
         },
       };
       console.log('Soniox config:', JSON.stringify(config));
@@ -717,17 +745,21 @@ async function speakText(text, lang) {
     const audioUrl = URL.createObjectURL(audioBlob);
     const audio = new Audio(audioUrl);
 
+    state.isTTSPlaying = true; // Mute mic during TTS
     return new Promise((resolve) => {
       audio.onended = () => {
+        state.isTTSPlaying = false;
         URL.revokeObjectURL(audioUrl);
         resolve();
       };
       audio.onerror = () => {
+        state.isTTSPlaying = false;
         URL.revokeObjectURL(audioUrl);
         resolve();
       };
       audio.play().catch((err) => {
         console.error('Audio play error:', err);
+        state.isTTSPlaying = false;
         resolve();
       });
     });
