@@ -316,6 +316,7 @@ async function startAudioCapture() {
 
       state.workletNode.port.onmessage = (event) => {
         if (state.isTTSPlaying) return; // Mute mic during TTS playback
+        if (state.pushToTalk && !state.pttActive) return; // PTT: only send when button held
         if (state.ws && state.ws.readyState === WebSocket.OPEN) {
           state.ws.send(event.data);
         }
@@ -331,6 +332,7 @@ async function startAudioCapture() {
 
       processor.onaudioprocess = (e) => {
         if (state.isTTSPlaying) return; // Mute mic during TTS playback
+        if (state.pushToTalk && !state.pttActive) return; // PTT: only send when button held
         const float32 = e.inputBuffer.getChannelData(0);
         const int16 = new Int16Array(float32.length);
         for (let i = 0; i < float32.length; i++) {
@@ -420,7 +422,23 @@ function connectSoniox(sampleRate) {
 
     ws.onclose = (event) => {
       console.log('Soniox WS closed:', event.code, event.reason);
-      if (state.isRecording) {
+      if (state.pushToTalk && state.pttConnected) {
+        // PTT mode: auto-reconnect if connection drops
+        console.log('PTT: auto-reconnecting Soniox...');
+        state.ws = null;
+        setTimeout(() => {
+          if (state.pushToTalk && state.pttConnected) {
+            const sr = state.actualSampleRate || 48000;
+            connectSoniox(sr).then(newWs => {
+              state.ws = newWs;
+              console.log('PTT: reconnected');
+            }).catch(err => {
+              console.error('PTT reconnect failed:', err);
+              setStatus('⚠️ Mất kết nối, nhấn Settings để thử lại', 'error');
+            });
+          }
+        }, 1000);
+      } else if (state.isRecording) {
         stopRecording();
         if (event.code !== 1000) {
           showToast('⚠️ Mất kết nối Soniox', 'error');
@@ -646,20 +664,76 @@ function toggleRecording() {
 }
 
 // ===== Push to Talk =====
+async function initPTTMode() {
+  if (!state.sonioxKey) {
+    showToast('⚠️ Vui lòng nhập Soniox API Key', 'error');
+    return;
+  }
+
+  setStatus('Đang kết nối sẵn...', 'connected');
+
+  try {
+    // Start mic if not already running
+    if (!state.micReady) {
+      const started = await startAudioCapture();
+      if (!started) {
+        setStatus('Lỗi microphone', 'error');
+        return;
+      }
+      state.micReady = true;
+    }
+
+    // Pre-connect Soniox
+    const sampleRate = state.actualSampleRate || 48000;
+    state.ws = await connectSoniox(sampleRate);
+    state.pttConnected = true;
+
+    setStatus('✅ Sẵn sàng — Giữ nút để nói', '');
+    showToast('Đã kết nối sẵn', 'success');
+  } catch (err) {
+    console.error('PTT init error:', err);
+    setStatus('⚠️ Lỗi kết nối, thử lại...', 'error');
+  }
+}
+
+function cleanupPTTMode() {
+  state.pttConnected = false;
+  state.pttActive = false;
+  if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+    state.ws.close();
+    state.ws = null;
+  }
+  stopAudioCapture();
+  state.micReady = false;
+}
+
 function pttStart() {
-  if (state.isRecording) return;
+  if (state.pttActive) return;
   state.pttActive = true;
+
   // Reset merge tracking for fresh PTT session
   state.lastEntry = null;
   state.lastEntryLang = '';
   state.lastEntryTime = 0;
-  startRecording(); // mic stays alive if already started
+
+  dom.recordBtn.classList.add('recording');
+  setStatus('Đang nghe... Hãy nói gì đó', 'recording');
+
+  // Reset segment
+  seg = { original: '', translation: '', lang: '', hasOrigFinal: false, hasTransFinal: false };
+
+  // If WS is not connected (e.g. failed init), try to connect now
+  if (!state.ws || state.ws.readyState !== WebSocket.OPEN) {
+    initPTTMode();
+  }
 }
 
 function pttStop() {
-  if (!state.isRecording) return;
+  if (!state.pttActive) return;
   state.pttActive = false;
-  stopRecording(true); // PTT mode: KEEP mic alive for next press
+
+  dom.recordBtn.classList.remove('recording');
+  setStatus('✅ Sẵn sàng — Giữ nút để nói', '');
 
   // Force commit any pending segment
   if (seg.original.trim()) {
@@ -691,14 +765,22 @@ function setupRecordButton() {
   dom.recordBtn = newBtn;
 
   if (state.pushToTalk) {
+    // Cleanup any normal recording state
+    if (state.isRecording) stopRecording(false);
+
     // Push to Talk mode: hold to talk
     newBtn.addEventListener('touchstart', (e) => { e.preventDefault(); pttStart(); }, { passive: false });
     newBtn.addEventListener('touchend', (e) => { e.preventDefault(); pttStop(); });
     newBtn.addEventListener('touchcancel', (e) => { e.preventDefault(); pttStop(); });
     newBtn.addEventListener('mousedown', (e) => { e.preventDefault(); pttStart(); });
     newBtn.addEventListener('mouseup', (e) => { e.preventDefault(); pttStop(); });
-    setStatus('Giữ nút để nói', '');
+
+    // Pre-connect mic + Soniox
+    initPTTMode();
   } else {
+    // Cleanup PTT persistent connection
+    if (state.pttConnected) cleanupPTTMode();
+
     // Normal mode: click to toggle
     newBtn.addEventListener('click', toggleRecording);
     setStatus('Nhấn nút để bắt đầu', '');
