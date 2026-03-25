@@ -1,7 +1,7 @@
 {
   "name": "VoiceTranslate",
   "short_name": "Translate",
-  "description": "Real-time Vietnamese ↔ English voice translation",
+  "description": "Real-time Vietnamese ↔ English/French voice translation",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#0a0a1a",
@@ -9,12 +9,12 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "icon-192.png",
+      "src": "assets/icon-192.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "icon-512.png",
+      "src": "assets/icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
     }
