@@ -47,14 +47,20 @@ export async function speakText(text, lang) {
     const audio = new Audio(audioUrl);
 
     state.isTTSPlaying = true; // Mute mic during TTS
+
+    // Helper: delay unmute to let residual sound fade
+    const unmuteMic = () => {
+      setTimeout(() => { state.isTTSPlaying = false; }, 800);
+    };
+
     return new Promise((resolve) => {
       audio.onended = () => {
-        state.isTTSPlaying = false;
+        unmuteMic();
         URL.revokeObjectURL(audioUrl);
         resolve();
       };
       audio.onerror = () => {
-        state.isTTSPlaying = false;
+        state.isTTSPlaying = false; // immediate on error
         URL.revokeObjectURL(audioUrl);
         resolve();
       };
