@@ -19,6 +19,7 @@ import { LANG_CONFIG } from './config.js';
 import { showToast, setStatus, updateLangFlags, openSettings, closeSettings, clearTranscripts } from './ui.js';
 import { speakText } from './tts.js';
 import { setupRecordButton } from './recording.js';
+import { resetSpeakerTracking } from './soniox.js';
 
 // ===== Settings =====
 function loadSettings() {
@@ -27,6 +28,7 @@ function loadSettings() {
   state.voiceGender = localStorage.getItem('vt_voice_gender') || 'female';
   state.autoSpeak = localStorage.getItem('vt_auto_speak') === 'true';
   state.langPair = localStorage.getItem('vt_lang_pair') || 'vi-en';
+  state.singleSpeaker = localStorage.getItem('vt_single_speaker') !== 'false';
   state.mergeSpeed = parseInt(localStorage.getItem('vt_merge_speed') || '4');
   state.pushToTalk = localStorage.getItem('vt_push_to_talk') === 'true';
 
@@ -35,6 +37,7 @@ function loadSettings() {
   dom.voiceGender.value = state.voiceGender;
   dom.autoSpeak.checked = state.autoSpeak;
   if (dom.langPair) dom.langPair.value = state.langPair;
+  if (dom.singleSpeaker) dom.singleSpeaker.checked = state.singleSpeaker;
   if (dom.pushToTalk) dom.pushToTalk.checked = state.pushToTalk;
   if (dom.mergeSpeed) {
     dom.mergeSpeed.value = state.mergeSpeed;
@@ -49,6 +52,7 @@ function saveSettings() {
   state.voiceGender = dom.voiceGender.value;
   state.autoSpeak = dom.autoSpeak.checked;
   state.langPair = dom.langPair ? dom.langPair.value : 'vi-en';
+  state.singleSpeaker = dom.singleSpeaker ? dom.singleSpeaker.checked : true;
   state.mergeSpeed = dom.mergeSpeed ? parseInt(dom.mergeSpeed.value) : 4;
   state.pushToTalk = dom.pushToTalk ? dom.pushToTalk.checked : false;
 
@@ -57,11 +61,13 @@ function saveSettings() {
   localStorage.setItem('vt_voice_gender', state.voiceGender);
   localStorage.setItem('vt_auto_speak', state.autoSpeak);
   localStorage.setItem('vt_lang_pair', state.langPair);
+  localStorage.setItem('vt_single_speaker', state.singleSpeaker);
   localStorage.setItem('vt_merge_speed', state.mergeSpeed);
   localStorage.setItem('vt_push_to_talk', state.pushToTalk);
 
   setupRecordButton();
   updateLangFlags();
+  resetSpeakerTracking();
 
   closeSettings();
   showToast('Đã lưu cài đặt', 'success');

@@ -17,8 +17,14 @@ export let seg = {
   hasTransFinal: false,
 };
 
+let primarySpeaker = null; // First detected speaker = user
+
 export function resetSegment() {
   seg = { original: '', translation: '', lang: '', hasOrigFinal: false, hasTransFinal: false };
+}
+
+export function resetSpeakerTracking() {
+  primarySpeaker = null;
 }
 
 // ===== WebSocket Connection =====
@@ -111,6 +117,28 @@ function handleSonioxResponse(data) {
 
   if (data.finished) return;
   if (!data.tokens || data.tokens.length === 0) return;
+
+  // Speaker filtering: lock to the first detected speaker
+  if (state.singleSpeaker) {
+    const speakerTokens = data.tokens.filter(t => {
+      const status = t.translation_status || 'none';
+      // Translation tokens don't have speaker info, always keep them
+      if (status === 'translation') return true;
+      // Track primary speaker from first original token
+      if (t.speaker !== undefined && t.speaker !== null) {
+        if (primarySpeaker === null) {
+          primarySpeaker = t.speaker;
+          console.log('Primary speaker locked:', primarySpeaker);
+        }
+        return t.speaker === primarySpeaker;
+      }
+      return true; // No speaker info = keep
+    });
+
+    // If all original tokens were filtered out, skip
+    if (speakerTokens.length === 0) return;
+    data = { ...data, tokens: speakerTokens };
+  }
 
   let interimOrig = '';
   let interimTrans = '';

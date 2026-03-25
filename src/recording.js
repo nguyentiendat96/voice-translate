@@ -6,7 +6,7 @@ import { state, dom } from './state.js';
 import { getTargetLang } from './config.js';
 import { setStatus, showToast, openSettings, addTranscript } from './ui.js';
 import { startAudioCapture, stopAudioCapture } from './audio-capture.js';
-import { connectSoniox, resetSegment, seg } from './soniox.js';
+import { connectSoniox, resetSegment, seg, resetSpeakerTracking } from './soniox.js';
 import { enqueueTTS } from './tts.js';
 
 // ===== Finalize Pending =====
@@ -49,6 +49,8 @@ export async function startRecording() {
     openSettings();
     return;
   }
+
+  resetSpeakerTracking(); // Reset speaker lock for new session
 
   try {
     if (!state.micReady) {
