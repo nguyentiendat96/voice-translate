@@ -28,7 +28,7 @@ function loadSettings() {
   state.voiceGender = localStorage.getItem('vt_voice_gender') || 'female';
   state.autoSpeak = localStorage.getItem('vt_auto_speak') === 'true';
   state.langPair = localStorage.getItem('vt_lang_pair') || 'vi-en';
-  state.singleSpeaker = localStorage.getItem('vt_single_speaker') !== 'false';
+  state.speakerFilter = localStorage.getItem('vt_speaker_filter') || '1';
   state.mergeSpeed = parseInt(localStorage.getItem('vt_merge_speed') || '4');
   state.pushToTalk = localStorage.getItem('vt_push_to_talk') === 'true';
 
@@ -37,7 +37,7 @@ function loadSettings() {
   dom.voiceGender.value = state.voiceGender;
   dom.autoSpeak.checked = state.autoSpeak;
   if (dom.langPair) dom.langPair.value = state.langPair;
-  if (dom.singleSpeaker) dom.singleSpeaker.checked = state.singleSpeaker;
+  if (dom.speakerFilter) dom.speakerFilter.value = state.speakerFilter;
   if (dom.pushToTalk) dom.pushToTalk.checked = state.pushToTalk;
   if (dom.mergeSpeed) {
     dom.mergeSpeed.value = state.mergeSpeed;
@@ -52,7 +52,7 @@ function saveSettings() {
   state.voiceGender = dom.voiceGender.value;
   state.autoSpeak = dom.autoSpeak.checked;
   state.langPair = dom.langPair ? dom.langPair.value : 'vi-en';
-  state.singleSpeaker = dom.singleSpeaker ? dom.singleSpeaker.checked : true;
+  state.speakerFilter = dom.speakerFilter ? dom.speakerFilter.value : '1';
   state.mergeSpeed = dom.mergeSpeed ? parseInt(dom.mergeSpeed.value) : 4;
   state.pushToTalk = dom.pushToTalk ? dom.pushToTalk.checked : false;
 
@@ -61,7 +61,7 @@ function saveSettings() {
   localStorage.setItem('vt_voice_gender', state.voiceGender);
   localStorage.setItem('vt_auto_speak', state.autoSpeak);
   localStorage.setItem('vt_lang_pair', state.langPair);
-  localStorage.setItem('vt_single_speaker', state.singleSpeaker);
+  localStorage.setItem('vt_speaker_filter', state.speakerFilter);
   localStorage.setItem('vt_merge_speed', state.mergeSpeed);
   localStorage.setItem('vt_push_to_talk', state.pushToTalk);
 

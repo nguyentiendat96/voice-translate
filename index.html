@@ -78,14 +78,15 @@
           </div>
           <p class="setting-hint" style="margin-top: -10px; margin-bottom: 16px;">Giữ nút mic để nói, thả ra để dịch</p>
 
-          <div class="setting-row">
-            <label for="singleSpeaker">Chỉ lắng nghe 1 người</label>
-            <div class="toggle-wrapper">
-              <input type="checkbox" id="singleSpeaker" checked />
-              <label for="singleSpeaker" class="toggle-label"></label>
-            </div>
+          <div class="setting-group">
+            <label for="speakerFilter">Số người nói</label>
+            <select id="speakerFilter">
+              <option value="1">1 người (lọc tiếng xung quanh)</option>
+              <option value="2">2 người (hội thoại)</option>
+              <option value="all">Tất cả (không lọc)</option>
+            </select>
           </div>
-          <p class="setting-hint" style="margin-top: -10px; margin-bottom: 16px;">Lọc bỏ giọng người khác xung quanh</p>
+          <p class="setting-hint" style="margin-top: -4px; margin-bottom: 16px;">Chọn số người sẽ được dịch, giọng người khác bị lọc bỏ</p>
 
           <div class="setting-group">
             <label for="mergeSpeed">Tốc độ gộp câu</label>

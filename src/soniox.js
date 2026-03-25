@@ -18,6 +18,7 @@ export let seg = {
 };
 
 let primarySpeaker = null; // First detected speaker = user
+let allowedSpeakers = new Set(); // Set of allowed speaker IDs
 
 export function resetSegment() {
   seg = { original: '', translation: '', lang: '', hasOrigFinal: false, hasTransFinal: false };
@@ -25,6 +26,7 @@ export function resetSegment() {
 
 export function resetSpeakerTracking() {
   primarySpeaker = null;
+  allowedSpeakers = new Set();
 }
 
 // ===== WebSocket Connection =====
@@ -118,19 +120,21 @@ function handleSonioxResponse(data) {
   if (data.finished) return;
   if (!data.tokens || data.tokens.length === 0) return;
 
-  // Speaker filtering: lock to the first detected speaker
-  if (state.singleSpeaker) {
+  // Speaker filtering based on speakerFilter setting
+  const maxSpeakers = state.speakerFilter === 'all' ? Infinity : parseInt(state.speakerFilter) || 1;
+
+  if (maxSpeakers < Infinity) {
     const speakerTokens = data.tokens.filter(t => {
       const status = t.translation_status || 'none';
       // Translation tokens don't have speaker info, always keep them
       if (status === 'translation') return true;
-      // Track primary speaker from first original token
+      // Track allowed speakers up to maxSpeakers
       if (t.speaker !== undefined && t.speaker !== null) {
-        if (primarySpeaker === null) {
-          primarySpeaker = t.speaker;
-          console.log('Primary speaker locked:', primarySpeaker);
+        if (allowedSpeakers.size < maxSpeakers) {
+          allowedSpeakers.add(t.speaker);
+          console.log(`Speaker ${t.speaker} allowed (${allowedSpeakers.size}/${maxSpeakers})`);
         }
-        return t.speaker === primarySpeaker;
+        return allowedSpeakers.has(t.speaker);
       }
       return true; // No speaker info = keep
     });
