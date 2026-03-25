@@ -9,6 +9,39 @@ import { startAudioCapture, stopAudioCapture } from './audio-capture.js';
 import { connectSoniox, resetSegment, seg } from './soniox.js';
 import { enqueueTTS } from './tts.js';
 
+// ===== Finalize Pending =====
+// Converts interim text to final so it stays visible after stopping
+function finalizePending() {
+  // Commit any pending segment data
+  if (seg.original.trim()) {
+    const orig = seg.original.trim();
+    const trans = seg.translation.trim();
+    const lang = seg.lang || 'vi';
+    addTranscript(orig, trans, lang, true);
+    state.lastEntry = dom.transcriptArea.querySelector('.transcript-entry:last-child');
+    state.lastEntryTime = Date.now();
+    state.lastEntryLang = lang;
+
+    if (trans) {
+      state.lastFinalText = trans;
+      dom.speakBtn.disabled = false;
+      if (state.autoSpeak) {
+        const targetLang = getTargetLang(lang, state.langPair);
+        enqueueTTS(trans, targetLang);
+      }
+    }
+    resetSegment();
+  }
+
+  // Convert any visible interim entry to final
+  if (state.currentInterim) {
+    state.currentInterim.classList.remove('entry-interim');
+    state.currentInterim.style.transition = 'opacity 0.3s ease';
+    state.currentInterim.style.opacity = '1';
+    state.currentInterim = null;
+  }
+}
+
 // ===== Normal Recording =====
 export async function startRecording() {
   if (!state.sonioxKey) {
@@ -55,6 +88,9 @@ export async function startRecording() {
 }
 
 export function stopRecording(keepMic = false) {
+  // Finalize any pending text BEFORE closing connection
+  finalizePending();
+
   state.isRecording = false;
   dom.recordBtn.classList.remove('recording');
 
@@ -157,25 +193,8 @@ export function pttStop() {
   dom.recordBtn.classList.remove('recording');
   setStatus('✅ Sẵn sàng — Giữ nút để nói', '');
 
-  // Force commit pending segment
-  if (seg.original.trim()) {
-    const orig = seg.original.trim();
-    const trans = seg.translation.trim();
-    const lang = seg.lang || 'vi';
-    addTranscript(orig, trans, lang, true);
-    state.lastEntry = dom.transcriptArea.querySelector('.transcript-entry:last-child');
-    state.lastEntryTime = Date.now();
-    state.lastEntryLang = lang;
-
-    if (trans) {
-      state.lastFinalText = trans;
-      dom.speakBtn.disabled = false;
-      const targetLang = getTargetLang(lang, state.langPair);
-      enqueueTTS(trans, targetLang);
-    }
-
-    resetSegment();
-  }
+  // Finalize any pending text
+  finalizePending();
 }
 
 // ===== Button Setup =====
